@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Guestbook</title>
+  <style>
+    :root { --accent: #2F5F9E; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #F4F5F8; color: #1B2333; }
+    header { background: var(--accent); color: white; padding: 32px 16px 56px; text-align: center; }
+    h1 { margin: 0 0 10px; font-size: 32px; }
+    .badge { display: inline-block; background: rgba(255, 255, 255, 0.18); padding: 6px 12px; border-radius: 999px; font-size: 14px; }
+    .badge code { font-weight: 700; }
+    main { max-width: 640px; margin: -32px auto 40px; padding: 0 16px; }
+    .card { background: white; border-radius: 14px; padding: 20px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06); margin-bottom: 16px; }
+    form { display: grid; gap: 10px; }
+    input, textarea { font: inherit; padding: 10px 12px; border: 1px solid #D5D9E2; border-radius: 8px; width: 100%; }
+    textarea { resize: vertical; min-height: 70px; }
+    button { font: inherit; font-weight: 600; background: var(--accent); color: white; border: 0; border-radius: 8px; padding: 11px; cursor: pointer; }
+    .count { color: #6B7385; font-size: 14px; margin: 0 4px 10px; }
+    .message { border-bottom: 1px solid #EEF0F4; padding: 12px 0; }
+    .message:last-child { border-bottom: 0; }
+    .who { font-weight: 700; }
+    .time { color: #8A92A3; font-size: 13px; margin-left: 6px; }
+    .text { margin-top: 4px; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .empty { color: #6B7385; text-align: center; padding: 16px 0; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1 id="title">Guestbook</h1>
+    <div class="badge">Served by container <code id="served-by">...</code></div>
+  </header>
+
+  <main>
+    <div class="card">
+      <form id="form">
+        <input id="name" placeholder="Your name" maxlength="40" required />
+        <textarea id="text" placeholder="Write a message..." maxlength="280" required></textarea>
+        <button type="submit">Post message</button>
+      </form>
+    </div>
+
+    <p class="count" id="count"></p>
+    <div class="card" id="messages"></div>
+  </main>
+
+  <script>
+    // Ask the server for the messages and draw them on the page
+    async function loadMessages() {
+      const res = await fetch("/api/messages");
+      const data = await res.json();
+
+      document.title = data.title;
+      document.getElementById("title").textContent = data.title;
+      document.getElementById("served-by").textContent = data.servedBy;
+      document.documentElement.style.setProperty("--accent", data.color);
+
+      const list = document.getElementById("messages");
+      list.innerHTML = "";
+      if (data.messages.length === 0) {
+        list.innerHTML = '<p class="empty">No messages yet. Be the first!</p>';
+      }
+      for (const m of [...data.messages].reverse()) {
+        const item = document.createElement("div");
+        item.className = "message";
+        item.innerHTML = '<span class="who"></span><span class="time"></span><div class="text"></div>';
+        item.querySelector(".who").textContent = m.name;
+        item.querySelector(".time").textContent = new Date(m.time).toLocaleString();
+        item.querySelector(".text").textContent = m.text;
+        list.appendChild(item);
+      }
+      const n = data.messages.length;
+      document.getElementById("count").textContent = n + (n === 1 ? " message" : " messages");
+    }
+
+    // Send a new message when the form is submitted
+    document.getElementById("form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      await fetch("/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: document.getElementById("name").value,
+          text: document.getElementById("text").value,
+        }),
+      });
+      document.getElementById("text").value = "";
+      loadMessages();
+    });
+
+    loadMessages();
+    setInterval(loadMessages, 3000); // check for new messages every 3 seconds
+  </script>
+</body>
+</html>
